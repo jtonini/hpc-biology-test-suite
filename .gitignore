@@ -1,0 +1,113 @@
+# HPC Biology Test Suite - Git Ignore File
+
+# Test Results and Output Files
+biology_test_results_*/
+*_test_*/
+*.out
+*.err
+*.log
+
+# Temporary Test Data
+test_*.fasta
+test_*.nex
+test_*.vcf
+test_*.ped
+test_*.map
+test_*.bed
+test_*.bim
+test_*.fam
+*_test.*
+*.tmp
+
+# IQ-TREE Output Files
+*.iqtree
+*.treefile
+*.mldist
+*.ckp.gz
+*.contree
+*.splits.nex
+*.uniqueseq.phy
+
+# BEAST Output Files
+*.trees
+*.xml.state
+combined_test.log
+annotated_test.tree
+
+# PLINK Output Files
+*.frq
+*.hwe
+*.ld
+*.assoc
+*.lmiss
+*.imiss
+*.fst
+
+# VCFtools Output Files
+*.recode.vcf
+*.ldepth*
+*.idepth
+
+# Kraken2 Output Files
+kraken2_help.txt
+test_output.txt
+test_report.txt
+error_test*.log
+test_db/
+
+# R Output Files
+.RData
+.Rhistory
+Rplots.pdf
+
+# System Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Backup Files
+*.bak
+*.backup
+*.orig
+
+# Compiled Files
+*.o
+*.so
+*.dylib
+*.dll
+
+# Log Files
+nohup.out
+slurm-*.out
+
+# Personal Configuration
+config.local
+paths.local
+
+# IDE Files
+.vscode/
+.idea/
+*.sublime-*
+
+# Python Cache (if any Python scripts added)
+__pycache__/
+*.pyc
+*.pyo
+
+# Node.js (if any JS tools added)
+node_modules/
+package-lock.json
+
+# Large Database Files (should be downloaded separately)
+*.k2d
+minikraken*/
+standard*/
+nt/
+refseq/
+
+# Temporary Directories
+tmp/
+temp/
+scratch/
