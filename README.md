@@ -226,7 +226,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/hpc-biology-test-suite/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/hpc-biology-test-suite/discussions)
-- **Email**: your.email@institution.edu
+- **Email**: jtonini@richmond.edu
 
 ## Version History
 
