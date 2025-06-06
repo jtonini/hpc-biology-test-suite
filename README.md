@@ -214,7 +214,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Authors
 
-- **João Tonini** - [YourGitHub](https://github.com/jtonini)
+- **João Tonini** - [GitHub](https://github.com/jtonini)
 
 ## Acknowledgments
 
