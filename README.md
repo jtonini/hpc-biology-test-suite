@@ -11,9 +11,11 @@ This test suite provides automated testing for biology software installations on
 - **Comprehensive Testing**: Tests multiple biology applications with detailed analysis
 - **Modular Design**: Easy to add new applications without changing core code
 - **SLURM Integration**: Automatic job submission with monitoring commands
+- **GPU Support**: Specialized testing for GPU-accelerated applications like AlphaFold3
 - **Intelligent Fallback**: Uses detailed tests when available, basic tests otherwise
 - **Professional Reporting**: Timestamped results with pass/fail summaries
-- **No Dependencies**: Works with existing BEAST example data, no external downloads required
+- **Container Support**: Tests containerized applications (Apptainer/Singularity)
+- **No Dependencies**: Works with existing example data, no external downloads required
 
 ## Supported Applications
 
@@ -23,6 +25,8 @@ This test suite provides automated testing for biology software installations on
 - **PLINK** - Population genetics and GWAS
 - **VCFtools** - Variant call format manipulation
 - **Kraken2** - Taxonomic sequence classification
+- **QIIME2** - Microbiome bioinformatics platform
+- **AlphaFold3** - AI-powered protein structure prediction (GPU-accelerated)
 - **R** - Statistical computing environment
 
 ### Easy to Add
@@ -38,8 +42,11 @@ cd hpc-biology-test-suite
 # Make scripts executable
 chmod +x *.sh
 
-# Run the test suite
+# Run the main test suite
 ./bio_test_suite.sh
+
+# Or run AlphaFold3 tests separately (requires GPU)
+./alphafold3_launcher.sh
 ```
 
 ## Usage
@@ -51,9 +58,20 @@ chmod +x *.sh
 
 # Follow the interactive menu to select:
 # 1) Phylogenetics & Evolution Suite
-# 2) Genomics & Bioinformatics Suite  
+# 2) Genomics & Bioinformatics Suite
 # 3) Complete Test Suite (Recommended)
 # 4) Custom Selection
+```
+
+### AlphaFold3 Testing (Separate Launcher)
+```bash
+# AlphaFold3 has its own launcher due to GPU requirements
+./alphafold3_launcher.sh --help
+
+# Quick usage examples:
+./alphafold3_launcher.sh slurm          # Submit to GPU nodes via SLURM
+./alphafold3_launcher.sh headnode       # Run head node tests only
+./alphafold3_launcher.sh local          # Run all tests locally (on GPU nodes)
 ```
 
 ### Individual Tests
@@ -64,6 +82,10 @@ sbatch beast_test.sh
 sbatch plink_test.sh
 sbatch vcftools_test.sh
 sbatch kraken2_test.sh
+sbatch qiime2_test.sh
+
+# AlphaFold3 (use launcher for proper GPU handling)
+./alphafold3_launcher.sh slurm
 ```
 
 ### Results
@@ -72,6 +94,12 @@ All results are saved in timestamped directories:
 biology_test_results_YYYYMMDD_HHMMSS/
 ├── test_summary.txt      # Pass/fail summary for all applications
 └── detailed_log.txt      # Full verbose output log
+
+alphafold3_test_results_YYYYMMDD_HHMMSS/
+├── alphafold3_test_report.txt    # Comprehensive AlphaFold3 report
+├── logs/                         # Detailed execution logs
+├── outputs/                      # Test predictions and results
+└── sequences/                    # Test protein sequences
 ```
 
 ## Sample Output
@@ -80,16 +108,17 @@ biology_test_results_YYYYMMDD_HHMMSS/
 APPLICATION     STATUS          DETAILS
 ----------------------------------------------------------------
 IQ-TREE         PASS           Found in PATH, Detailed test available
-BEAST2          PASS           Found as beast2, Detailed test available  
+BEAST2          PASS           Found as beast2, Detailed test available
 PLINK           PASS           Found at direct path, Detailed test available
 VCFtools        PASS           Found in PATH, Detailed test available
 Kraken2         PASS           Found in PATH, Detailed test available
+QIIME2          PASS           Environment + command test, Detailed test available
 R               PASS           Found in PATH, Basic test only
 
 SUMMARY STATISTICS:
 ==================
-Total applications tested: 6
-Successfully detected: 6
+Total applications tested: 7
+Successfully detected: 7
 Failed detection: 0
 Success rate: 100%
 ```
@@ -99,21 +128,26 @@ Success rate: 100%
 - **Operating System**: Linux (tested on CentOS/RHEL)
 - **Job Scheduler**: SLURM (optional - can run directly)
 - **Applications**: Install target software in `/opt/sw/pub/apps/` or update paths
-- **Example Data**: Uses existing BEAST example files (included in BEAST installation)
+- **GPU Support**: NVIDIA GPUs required for AlphaFold3 testing
+- **Container Runtime**: Apptainer/Singularity for containerized applications
+- **Example Data**: Uses existing example files or generates test data
 
 ## File Structure
 
 ```
 hpc-biology-test-suite/
-├── README.md                 # This file
-├── bio_test_suite.sh         # Main comprehensive launcher
-├── iqtree_test.sh            # Detailed IQ-TREE testing
-├── beast_test.sh             # Detailed BEAST2 testing
-├── plink_test.sh             # Detailed PLINK testing
-├── vcftools_test.sh          # Detailed VCFtools testing
-├── kraken2_test.sh           # Detailed Kraken2 testing
-├── phylo_test_launcher.sh    # Simple phylogenetics launcher
-└── examples/                 # Example outputs and configurations
+├── README.md                    # This file
+├── bio_test_suite.sh            # Main comprehensive launcher
+├── iqtree_test.sh               # Detailed IQ-TREE testing
+├── beast_test.sh                # Detailed BEAST2 testing
+├── plink_test.sh                # Detailed PLINK testing
+├── vcftools_test.sh             # Detailed VCFtools testing
+├── kraken2_test.sh              # Detailed Kraken2 testing
+├── qiime2_test.sh               # Detailed QIIME2 testing
+├── alphafold3_launcher.sh       # AlphaFold3 test launcher (SLURM integration)
+├── alphafold3_test.sh           # Detailed AlphaFold3 testing
+├── phylo_test_launcher.sh       # Simple phylogenetics launcher
+└── examples/                    # Example outputs and configurations
 ```
 
 ## Adding New Applications
@@ -131,12 +165,15 @@ chmod +x myapp_test.sh
 Add these 4 lines to `bio_test_suite.sh`:
 ```bash
 apps["myapp"]="MyApplication"
-app_paths["myapp"]="/opt/sw/pub/apps/myapp"  
+app_paths["myapp"]="/opt/sw/pub/apps/myapp"
 app_categories["myapp"]="genomics"
 app_descriptions["myapp"]="Description of what MyApp does"
 ```
 
 That's it! The launcher automatically detects and uses your detailed script.
+
+### 3. For GPU Applications (Optional)
+For applications requiring specialized hardware (like GPUs), consider creating a separate launcher following the `alphafold3_launcher.sh` pattern.
 
 ## Configuration
 
@@ -153,6 +190,7 @@ Adjust job parameters in individual test scripts:
 #SBATCH --time=02:00:00
 #SBATCH --mem=8GB
 #SBATCH --cpus-per-task=4
+#SBATCH --gres=gpu:1              # For GPU applications
 ```
 
 ## Test Details
@@ -193,6 +231,21 @@ Adjust job parameters in individual test scripts:
 - Output format validation
 - Performance metrics
 
+### QIIME2 Tests
+- Conda environment validation
+- Data import functionality (BIOM, FASTA, metadata)
+- Core analysis workflow (diversity, filtering, summarization)
+- Plugin functionality testing
+- Export capabilities
+
+### AlphaFold3 Tests
+- Container accessibility and execution
+- GPU availability and CUDA functionality
+- Database connectivity and validation
+- Module loading (with fallback to manual paths)
+- Functional prediction testing with small proteins
+- Existing test script execution (`run_alphafold_test.py`, `run_alphafold_data_test.py`)
+
 ## Contributing
 
 We welcome contributions! Here's how you can help:
@@ -206,6 +259,7 @@ We welcome contributions! Here's how you can help:
 - Follow the existing script structure
 - Include comprehensive error handling
 - Add progress reporting with PASS/FAIL indicators
+- For GPU applications, consider separate launchers with proper SLURM integration
 - Test on multiple systems before submitting
 
 ## License
@@ -220,6 +274,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - BEAST team for providing excellent example datasets
 - IQ-TREE developers for comprehensive phylogenetic analysis tools
+- DeepMind for AlphaFold3 and associated test scripts
+- QIIME2 development team for microbiome analysis tools
 - HPC community for testing and feedback
 
 ## Support
@@ -233,6 +289,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **v1.0.0** - Initial release with 6 biology applications
 - **v1.1.0** - Added modular design and comprehensive reporting
 - **v1.2.0** - Enhanced SLURM integration and error handling
+- **v1.3.0** - Added QIIME2 microbiome analysis testing
+- **v1.4.0** - Added AlphaFold3 GPU-accelerated testing with specialized launcher
 
 ---
 
