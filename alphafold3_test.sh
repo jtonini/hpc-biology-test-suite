@@ -72,9 +72,7 @@ print_status() {
 
 # Create results directory structure
 setup_test_environment() {
-    print_status "INFO" "Setting up AlphaFold3 test environment..."
-    
-    # Ensure results directory exists first
+    # Create directories FIRST, before any logging
     mkdir -p "$RESULTS_DIR" || {
         echo "ERROR: Failed to create results directory: $RESULTS_DIR"
         exit 1
@@ -85,6 +83,9 @@ setup_test_environment() {
     
     # Initialize log file early so tee works
     touch "$LOG_FILE"
+    
+    # NOW we can safely use print_status with logging
+    print_status "INFO" "Setting up AlphaFold3 test environment..."
     
     # Create test sequences directory with small protein examples
     cat > "${RESULTS_DIR}/sequences/small_peptide.fasta" << 'EOF'
@@ -123,95 +124,149 @@ test_module_loading() {
         source /etc/profile.d/modules.sh
     elif [[ -f /opt/ohpc/admin/lmod/lmod/init/bash ]]; then
         source /opt/ohpc/admin/lmod/lmod/init/bash
+    elif [[ -f /usr/share/lmod/lmod/init/bash ]]; then
+        source /usr/share/lmod/lmod/init/bash
     fi
     
     # Check if module is available
     if module avail 2>&1 | grep -q "alphafold3"; then
         print_status "PASS" "AlphaFold3 module is available"
-    else
-        print_status "WARN" "AlphaFold3 module not found, trying manual setup"
-        # Set paths manually as fallback
-        export ALPHAFOLD_CONTAINER="/opt/ohpc/pub/apps/alphafold3/alphafold3_latest.sif"
-        export ALPHAFOLD_DB="/opt/ohpc/pub/apps/public_databases"
         
-        # Verify manual paths exist
-        if [[ -f "$ALPHAFOLD_CONTAINER" ]]; then
-            print_status "PASS" "Container found at manual path: $ALPHAFOLD_CONTAINER"
+        # Try to load the module
+        print_status "INFO" "Loading AlphaFold3 module..."
+        if module load "$AF3_MODULE" 2>&1; then
+            print_status "PASS" "AlphaFold3 module loaded successfully"
+        elif module --ignore_cache load "$AF3_MODULE" 2>&1; then
+            print_status "PASS" "AlphaFold3 module loaded successfully (cache ignored)"
         else
-            print_status "FAIL" "Container not found at: $ALPHAFOLD_CONTAINER"
-            exit 1
+            print_status "WARN" "Failed to load AlphaFold3 module, using manual setup"
+            manual_setup_paths
+            return 0
         fi
-        
-        if [[ -d "$ALPHAFOLD_DB" ]]; then
-            print_status "PASS" "Database directory found at: $ALPHAFOLD_DB"
-        else
-            print_status "FAIL" "Database directory not found at: $ALPHAFOLD_DB"
-            exit 1
-        fi
-        
-        return 0
-    fi
-    
-    # Try to load the module
-    print_status "INFO" "Loading AlphaFold3 module..."
-    if module load "$AF3_MODULE" 2>&1; then
-        print_status "PASS" "AlphaFold3 module loaded successfully"
         
         # Check environment variables after loading
         if [[ -n "$ALPHAFOLD_CONTAINER" ]]; then
             print_status "PASS" "ALPHAFOLD_CONTAINER set to: $ALPHAFOLD_CONTAINER"
         else
-            print_status "FAIL" "ALPHAFOLD_CONTAINER not set after module load"
-            exit 1
+            print_status "WARN" "ALPHAFOLD_CONTAINER not set, using manual setup"
+            manual_setup_paths
+            return 0
         fi
         
         if [[ -n "$ALPHAFOLD_DB" ]]; then
             print_status "PASS" "ALPHAFOLD_DB set to: $ALPHAFOLD_DB"
         else
-            print_status "FAIL" "ALPHAFOLD_DB not set after module load"
-            exit 1
+            print_status "WARN" "ALPHAFOLD_DB not set, using manual setup"
+            manual_setup_paths
+            return 0
         fi
     else
-        print_status "WARN" "Failed to load AlphaFold3 module, trying manual setup"
-        # Set paths manually as fallback
-        export ALPHAFOLD_CONTAINER="/opt/ohpc/pub/apps/alphafold3/alphafold3_latest.sif"
-        export ALPHAFOLD_DB="/opt/ohpc/pub/apps/public_databases"
-        
-        # Verify manual paths exist
-        if [[ -f "$ALPHAFOLD_CONTAINER" && -d "$ALPHAFOLD_DB" ]]; then
-            print_status "PASS" "Manual setup successful"
-        else
-            print_status "FAIL" "Manual setup failed - paths don't exist"
-            exit 1
-        fi
+        print_status "WARN" "AlphaFold3 module not found, using manual setup"
+        manual_setup_paths
     fi
+}
+
+# Manual path setup as fallback
+manual_setup_paths() {
+    print_status "INFO" "Setting up AlphaFold3 paths manually..."
+    export ALPHAFOLD_CONTAINER="/opt/ohpc/pub/apps/alphafold3/alphafold3_latest.sif"
+    export ALPHAFOLD_DB="/opt/ohpc/pub/apps/public_databases"
+    
+    # Verify manual paths exist
+    if [[ -f "$ALPHAFOLD_CONTAINER" ]]; then
+        print_status "PASS" "Container found at: $ALPHAFOLD_CONTAINER"
+    else
+        print_status "FAIL" "Container not found at: $ALPHAFOLD_CONTAINER"
+        exit 1
+    fi
+    
+    if [[ -d "$ALPHAFOLD_DB" ]]; then
+        print_status "PASS" "Database directory found at: $ALPHAFOLD_DB"
+    else
+        print_status "FAIL" "Database directory not found at: $ALPHAFOLD_DB"
+        exit 1
+    fi
+    
+    print_status "PASS" "Manual setup completed successfully"
 }
 
 # Test container accessibility
 test_container() {
     print_status "INFO" "Testing AlphaFold3 container..."
     
-    if [[ -f "$ALPHAFOLD_CONTAINER" ]]; then
-        print_status "PASS" "Container file exists: $ALPHAFOLD_CONTAINER"
+    # Debug filesystem access
+    print_status "INFO" "Debugging container file access..."
+    print_status "INFO" "Current user: $(whoami)"
+    print_status "INFO" "Current node: $(hostname)"
+    print_status "INFO" "Expected container path: $ALPHAFOLD_CONTAINER"
+    
+    # Check parent directory first
+    local container_dir=$(dirname "$ALPHAFOLD_CONTAINER")
+    print_status "INFO" "Checking parent directory: $container_dir"
+    if [[ -d "$container_dir" ]]; then
+        print_status "PASS" "Parent directory exists"
+        print_status "INFO" "Directory contents:"
+        ls -la "$container_dir" 2>&1 | tee -a "$LOG_FILE"
+    else
+        print_status "FAIL" "Parent directory does not exist: $container_dir"
+        return 1
+    fi
+    
+    # Check file existence with detailed info
+    if [[ -e "$ALPHAFOLD_CONTAINER" ]]; then
+        print_status "PASS" "Container file exists"
+        print_status "INFO" "File details:"
+        ls -la "$ALPHAFOLD_CONTAINER" 2>&1 | tee -a "$LOG_FILE"
         
-        # Test container can be executed
-        if apptainer exec "$ALPHAFOLD_CONTAINER" python --version > "${RESULTS_DIR}/logs/container_python.log" 2>&1; then
-            print_status "PASS" "Container is executable"
-            cat "${RESULTS_DIR}/logs/container_python.log" | tee -a "$LOG_FILE"
+        # Check if it's readable
+        if [[ -r "$ALPHAFOLD_CONTAINER" ]]; then
+            print_status "PASS" "Container file is readable"
         else
-            print_status "FAIL" "Container execution failed"
-            cat "${RESULTS_DIR}/logs/container_python.log" | tee -a "$LOG_FILE"
+            print_status "FAIL" "Container file exists but is not readable"
+            print_status "INFO" "File permissions:"
+            stat "$ALPHAFOLD_CONTAINER" 2>&1 | tee -a "$LOG_FILE"
+            return 1
         fi
+    else
+        print_status "FAIL" "Container file not found: $ALPHAFOLD_CONTAINER"
+        print_status "INFO" "Searching for container files in directory..."
+        find "$container_dir" -name "*.sif" 2>/dev/null | tee -a "$LOG_FILE" || true
+        return 1
+    fi
+    
+    # Test container can be executed
+    print_status "INFO" "Testing container execution..."
+    if apptainer exec "$ALPHAFOLD_CONTAINER" python --version > "${RESULTS_DIR}/logs/container_python.log" 2>&1; then
+        print_status "PASS" "Container is executable"
+        cat "${RESULTS_DIR}/logs/container_python.log" | tee -a "$LOG_FILE"
+    else
+        print_status "FAIL" "Container execution failed"
+        cat "${RESULTS_DIR}/logs/container_python.log" | tee -a "$LOG_FILE"
         
-        # Test AlphaFold3 help
+        # Additional debugging for container execution failure
+        print_status "INFO" "Checking apptainer/singularity availability..."
+        if command -v apptainer >/dev/null 2>&1; then
+            print_status "PASS" "apptainer command found: $(which apptainer)"
+        elif command -v singularity >/dev/null 2>&1; then
+            print_status "WARN" "singularity found but apptainer preferred: $(which singularity)"
+        else
+            print_status "FAIL" "Neither apptainer nor singularity found"
+        fi
+        return 1
+    fi
+    
+    # Test AlphaFold3 help if available
+    print_status "INFO" "Testing af3_run alias..."
+    if command -v af3_run >/dev/null 2>&1; then
+        print_status "PASS" "af3_run alias is available"
         if af3_run --help > "${RESULTS_DIR}/logs/af3_help.log" 2>&1; then
             print_status "PASS" "AlphaFold3 help command works"
         else
             print_status "WARN" "AlphaFold3 help command failed (may be normal)"
         fi
     else
-        print_status "FAIL" "Container file not found: $ALPHAFOLD_CONTAINER"
-        exit 1
+        print_status "WARN" "af3_run alias not set up"
+        print_status "INFO" "Will test direct apptainer execution instead"
     fi
 }
 

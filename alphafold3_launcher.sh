@@ -361,12 +361,16 @@ if [[ -f /etc/profile.d/modules.sh ]]; then
     source /etc/profile.d/modules.sh
 elif [[ -f /opt/ohpc/admin/lmod/lmod/init/bash ]]; then
     source /opt/ohpc/admin/lmod/lmod/init/bash
+elif [[ -f /usr/share/lmod/lmod/init/bash ]]; then
+    source /usr/share/lmod/lmod/init/bash
 fi
 
 # Load required modules - ESSENTIAL for AlphaFold3 paths
 echo "Loading AlphaFold3 module..."
 if module load alphafold3/3.0 2>&1; then
     echo "Module loaded successfully"
+elif module --ignore_cache load alphafold3/3.0 2>&1; then
+    echo "Module loaded successfully (cache ignored)"
 else
     echo "Warning: Module load failed, trying to set paths manually..."
     export ALPHAFOLD_CONTAINER="/opt/ohpc/pub/apps/alphafold3/alphafold3_latest.sif"
