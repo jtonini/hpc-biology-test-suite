@@ -48,7 +48,7 @@ update_summary() {
     local app_name="$1"
     local status="$2"
     local details="$3"
-    
+
     printf "%-20s %-15s %s\n" "$app_name" "$status" "$details" >> "$SUMMARY_FILE"
 }
 
@@ -56,7 +56,7 @@ update_summary() {
 detect_test_scripts() {
     local app="$1"
     local script_name="${app}_test.sh"
-    
+
     if [[ -f "$script_name" ]]; then
         echo "detailed"
         return 0
@@ -102,13 +102,13 @@ echo ""
 check_software() {
     local cmd="$1"
     local app_name="$2"
-    
+
     log_both "  Searching for $app_name executable..."
-    
+
     if command -v "$cmd" &> /dev/null; then
         local path=$(which "$cmd")
         log_both "    PASS: $app_name found at: $path"
-        
+
         # Try to get version info
         case "$cmd" in
             "iqtree"|"iqtree2")
@@ -136,7 +136,7 @@ check_software() {
                 log_both "    Version: $version"
                 ;;
         esac
-        
+
         return 0
     else
         log_both "    FAIL: $app_name not found in PATH"
@@ -148,10 +148,10 @@ check_software() {
 check_executable() {
     local filepath="$1"
     local app_name="$2"
-    
+
     log_both "  Checking direct path for $app_name..."
     log_both "    Looking at: $filepath"
-    
+
     if [[ -x "$filepath" ]]; then
         log_both "    PASS: $app_name executable found and is executable"
         return 0
@@ -263,10 +263,10 @@ for app in "${!apps[@]}"; do
     echo "TESTING: ${apps[$app]}"
     echo "   Description: ${app_descriptions[$app]}"
     log_both "   Testing ${apps[$app]} (${app_descriptions[$app]})"
-    
+
     found=false
     test_details=""
-    
+
     # Check for detailed test script availability
     test_type=$(detect_test_scripts "$app")
     if [[ "$test_type" == "detailed" ]]; then
@@ -276,7 +276,7 @@ for app in "${!apps[@]}"; do
         log_both "   INFO: No detailed test script found, will use basic test"
         test_details="Basic test only"
     fi
-    
+
     # Try command-line detection first
     if check_software "$app" "${apps[$app]}"; then
         found=true
@@ -293,12 +293,12 @@ for app in "${!apps[@]}"; do
         found=true
         test_details="Found at direct path, $test_details"
     fi
-    
+
     if [[ "$found" == true ]]; then
         available_apps+=("$app")
         update_summary "${apps[$app]}" "PASS" "$test_details"
         log_both "   SUCCESS: ${apps[$app]} is available and ready for testing!"
-        
+
         # Categorize apps
         case "${app_categories[$app]}" in
             "phylogenetics"|"population_genetics") phylo_apps+=("$app") ;;
@@ -311,7 +311,7 @@ for app in "${!apps[@]}"; do
         update_summary "${apps[$app]}" "FAIL" "Not found in PATH or expected locations"
         log_both "   FAILED: ${apps[$app]} is not accessible"
     fi
-    
+
     echo ""
 done
 
@@ -514,7 +514,7 @@ echo ""
 log_both "Starting test execution in 3 seconds..."
 sleep 1
 echo "3... "
-sleep 1  
+sleep 1
 echo "2... "
 sleep 1
 echo "1... "
@@ -534,10 +534,10 @@ for app in "${selected_apps[@]}"; do
     echo "TEST $test_count/${#selected_apps[@]}: ${apps[$app]}"
     echo "================================================"
     log_both "Testing ${apps[$app]} (${app_descriptions[$app]})"
-    
+
     # Detect test type
     test_type=$(detect_test_scripts "$app")
-    
+
     case "$app" in
         "iqtree")
             if [[ "$test_type" == "detailed" ]]; then
@@ -575,7 +575,7 @@ for app in "${selected_apps[@]}"; do
                 fi
             fi
             ;;
-            
+
         "beast")
             if [[ "$test_type" == "detailed" ]]; then
                 log_both "Launching comprehensive BEAST2 Bayesian analysis..."
@@ -612,7 +612,7 @@ for app in "${selected_apps[@]}"; do
                 fi
             fi
             ;;
-            
+
         "plink")
             if [[ "$test_type" == "detailed" ]]; then
                 log_both "Launching comprehensive PLINK population genetics analysis..."
@@ -647,7 +647,7 @@ for app in "${selected_apps[@]}"; do
                 fi
             fi
             ;;
-            
+
         "vcftools")
             if [[ "$test_type" == "detailed" ]]; then
                 log_both "Launching comprehensive VCFtools variant analysis..."
@@ -682,7 +682,7 @@ for app in "${selected_apps[@]}"; do
                 fi
             fi
             ;;
-            
+
         "kraken2")
             if [[ "$test_type" == "detailed" ]]; then
                 log_both "Launching comprehensive Kraken2 taxonomic classification..."
@@ -717,13 +717,92 @@ for app in "${selected_apps[@]}"; do
                 fi
             fi
             ;;
-            
+
+        "qiime")
+            if [[ "$test_type" == "detailed" ]]; then
+                log_both "Launching comprehensive QIIME2 microbiome analysis..."
+                if [[ "$scheduler" == "slurm" ]]; then
+                    job_id=$(sbatch --parsable qiime2_test.sh 2>/dev/null)
+                    if [[ $? -eq 0 ]]; then
+                        log_both "   PASS: QIIME2 detailed test submitted (Job: $job_id)"
+                        log_both "   Monitor: squeue -j $job_id"
+                        log_both "   Output: tail -f qiime2_test_${job_id}.out"
+                        echo "QIIME2: PASS SUBMITTED (Job: $job_id)" >> "$SUMMARY_FILE"
+                        ((successful_tests++))
+                    else
+                        log_both "   FAIL: Could not submit QIIME2 job to SLURM"
+                        echo "QIIME2: FAIL (SLURM submission error)" >> "$SUMMARY_FILE"
+                        ((failed_tests++))
+                    fi
+                else
+                    log_both "   Running QIIME2 detailed test directly..."
+                    bash qiime2_test.sh > qiime2_direct_$$.out 2>&1 &
+                    log_both "   Background job started, output in: qiime2_direct_$$.out"
+                    echo "QIIME2: PASS RUNNING (Direct execution)" >> "$SUMMARY_FILE"
+                    ((successful_tests++))
+                fi
+            else
+                log_both "Testing QIIME2 microbiome analysis platform..."
+                
+                # Check if QIIME2 base directory exists
+                if [[ -d "/opt/sw/pub/apps/qiime2" ]]; then
+                    log_both "   PASS: QIIME2 installation directory found"
+                else
+                    log_both "   WARN: QIIME2 installation directory not found at expected location"
+                fi
+                
+                # Test conda availability and QIIME2 environment
+                if command -v conda >/dev/null 2>&1; then
+                    log_both "   PASS: Conda found: $(which conda)"
+                    
+                    # Try to check if QIIME2 environment exists
+                    if conda env list 2>/dev/null | grep -q "qiime2\|^qiime "; then
+                        log_both "   PASS: QIIME2 conda environment detected"
+                        
+                        # Try to activate and test qiime command
+                        eval "$(conda shell.bash hook)" 2>/dev/null || true
+                        if conda activate qiime2 2>/dev/null && command -v qiime >/dev/null 2>&1; then
+                            qiime_version=$(qiime --version 2>/dev/null | head -1 || echo "version check failed")
+                            log_both "   PASS: QIIME2 command works: $qiime_version"
+                            conda deactivate 2>/dev/null || true
+                            echo "QIIME2: PASS (Environment + command test)" >> "$SUMMARY_FILE"
+                            ((successful_tests++))
+                        elif conda activate qiime 2>/dev/null && command -v qiime >/dev/null 2>&1; then
+                            qiime_version=$(qiime --version 2>/dev/null | head -1 || echo "version check failed")
+                            log_both "   PASS: QIIME2 command works: $qiime_version"
+                            conda deactivate 2>/dev/null || true
+                            echo "QIIME2: PASS (Environment + command test)" >> "$SUMMARY_FILE"
+                            ((successful_tests++))
+                        else
+                            log_both "   FAIL: Could not activate QIIME2 environment or qiime command not working"
+                            echo "QIIME2: FAIL (Environment activation failed)" >> "$SUMMARY_FILE"
+                            ((failed_tests++))
+                        fi
+                    else
+                        log_both "   FAIL: QIIME2 conda environment not found"
+                        echo "QIIME2: FAIL (Environment not found)" >> "$SUMMARY_FILE"
+                        ((failed_tests++))
+                    fi
+                elif command -v qiime >/dev/null 2>&1; then
+                    # QIIME2 might be installed directly in PATH
+                    qiime_version=$(qiime --version 2>/dev/null | head -1 || echo "version check failed")
+                    log_both "   PASS: QIIME2 command found in PATH: $qiime_version"
+                    echo "QIIME2: PASS (Direct installation)" >> "$SUMMARY_FILE"
+                    ((successful_tests++))
+                else
+                    log_both "   FAIL: Neither conda nor qiime command found"
+                    echo "QIIME2: FAIL (No installation method found)" >> "$SUMMARY_FILE"
+                    ((failed_tests++))
+                fi
+            fi
+            ;;
+
         "R")
             log_both "Testing R Statistical Computing environment..."
             if R --version &> /dev/null; then
                 r_version=$(R --version 2>&1 | head -1)
                 log_both "   PASS: $r_version"
-                
+
                 # Test basic R functionality
                 echo "cat('R is working!\\n')" | R --vanilla --quiet > /tmp/r_test_$$.out 2>&1
                 if grep -q "R is working" /tmp/r_test_$$.out; then
@@ -741,7 +820,7 @@ for app in "${selected_apps[@]}"; do
                 ((failed_tests++))
             fi
             ;;
-            
+
         "treemix")
             log_both "Testing TreeMix population phylogenetics..."
             if command -v treemix &> /dev/null; then
@@ -754,26 +833,13 @@ for app in "${selected_apps[@]}"; do
                 ((failed_tests++))
             fi
             ;;
-            
-        "qiime")
-            log_both "Testing QIIME2 microbiome analysis..."
-            if [[ -x "/opt/sw/pub/apps/qiime2" ]]; then
-                log_both "   PASS: QIIME2 installation found"
-                echo "QIIME2: PASS (Installation check passed)" >> "$SUMMARY_FILE"
-                ((successful_tests++))
-            else
-                log_both "   FAIL: QIIME2 installation not accessible"
-                echo "QIIME2: FAIL (Installation not found)" >> "$SUMMARY_FILE"
-                ((failed_tests++))
-            fi
-            ;;
-            
+
         *)
             log_both "   WARNING: No specific test defined for $app - skipping"
             echo "${apps[$app]}: SKIPPED (No test defined)" >> "$SUMMARY_FILE"
             ;;
     esac
-    
+
     # Progress indicator
     local progress=$(( test_count * 100 / ${#selected_apps[@]} ))
     log_both "   Progress: $test_count/${#selected_apps[@]} tests completed ($progress%)"
@@ -802,7 +868,7 @@ cat >> "$SUMMARY_FILE" << EOF
 FINAL STATISTICS:
 ================
 Total tests executed: $test_count
-Successful tests: $successful_tests  
+Successful tests: $successful_tests
 Failed tests: $failed_tests
 Success rate: $(( successful_tests * 100 / test_count ))%
 Completion time: $(date)
@@ -846,6 +912,7 @@ if [[ "$scheduler" == "slurm" ]]; then
     log_both "  tail -f plink_test_JOBID.out"
     log_both "  tail -f vcftools_test_JOBID.out"
     log_both "  tail -f kraken2_test_JOBID.out"
+    log_both "  tail -f qiime2_test_JOBID.out"
     log_both ""
     log_both "Create useful aliases:"
     log_both "  alias checkjobs='squeue -u \$(whoami)'"
